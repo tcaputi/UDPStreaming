@@ -1,47 +1,58 @@
 package com.example.udpstreaming;
 
-import java.nio.BufferOverflowException;
-import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
 
 public class Buffer {
-	
+
 	private int inPointer = 0;
 	private int outPointer = 0;
-	private byte[] buffer;
-	
-	public Buffer(int cap){
-		this.buffer = new byte[cap];
+	private ByteBuffer buffer;
+
+	public Buffer(int cap) {
+		this.buffer = ByteBuffer.allocate(cap);
 	}
-	
-	public void write(byte[] b){
-		if(b.length > buffer.length) throw new BufferOverflowException();
-		if(inPointer <= outPointer && ((inPointer + b.length)%buffer.length > outPointer || (inPointer + b.length)%buffer.length <= inPointer)) throw new BufferOverflowException();
-		if(inPointer > outPointer && (inPointer + b.length)%buffer.length > outPointer && (inPointer + b.length)%buffer.length <= inPointer) throw new BufferOverflowException();
-		
-		int remaining = buffer.length - inPointer;
-		if(remaining >= b.length){
-			System.arraycopy(b, 0, buffer, inPointer, b.length);
+
+	public boolean write(byte[] b) {
+		if (b.length > buffer.capacity())
+			return false;
+		if (inPointer <= outPointer && ((inPointer + b.length) % buffer.capacity() > outPointer || (inPointer + b.length) % buffer.capacity() <= inPointer))
+			return false;
+		if (inPointer > outPointer && (inPointer + b.length) % buffer.capacity() > outPointer && (inPointer + b.length) % buffer.capacity() <= inPointer)
+			return false;
+
+		int remaining = buffer.capacity() - inPointer;
+		if (remaining >= b.length) {
+			buffer.put(b);
 			inPointer += b.length;
-		}else{
-			System.arraycopy(b, 0, buffer, inPointer, remaining);
-			System.arraycopy(b, remaining, buffer, 0, b.length - remaining);
+			buffer.position(inPointer);
+		} else {
+			buffer.put(b, 0, remaining);
+			buffer.position(0);
+			buffer.put(b, remaining, b.length - remaining);
 			inPointer = b.length - remaining;
+			buffer.position(inPointer);
 		}
+		return true;
 	}
-	
-	public void read(byte[] b){
-		if(b.length > buffer.length) throw new BufferUnderflowException();
-		if(inPointer <= outPointer && ((outPointer + b.length)%buffer.length >= inPointer && (outPointer + b.length)%buffer.length < outPointer)) throw new BufferUnderflowException();
-		if(inPointer > outPointer && ((outPointer + b.length)%buffer.length >= inPointer || (outPointer + b.length)%buffer.length <= outPointer)) throw new BufferUnderflowException();
-		
-		int remaining = buffer.length - outPointer;
-		if(remaining >= b.length){
-			System.arraycopy(buffer, outPointer, b, 0, b.length);
+
+	public boolean read(byte[] b) {
+		if (b.length > buffer.capacity())
+			return false;
+		if (inPointer <= outPointer && ((outPointer + b.length) % buffer.capacity() >= inPointer && (outPointer + b.length) % buffer.capacity() < outPointer))
+			return false;
+		if (inPointer > outPointer && ((outPointer + b.length) % buffer.capacity() >= inPointer || (outPointer + b.length) % buffer.capacity() <= outPointer))
+			return false;
+
+		int remaining = buffer.capacity() - outPointer;
+		if (remaining >= b.length) {
+			System.arraycopy(buffer.array(), outPointer, b, 0, b.length);
 			outPointer += b.length;
-		}else{
+		} else {
 			System.arraycopy(buffer, outPointer, b, 0, remaining);
-			System.arraycopy(buffer, 0, b, remaining, b.length - remaining);
+			System.arraycopy(buffer.array(), 0, b, remaining, b.length - remaining);
 			outPointer = b.length - remaining;
 		}
+
+		return true;
 	}
 }
