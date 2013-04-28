@@ -60,7 +60,7 @@ public class MainActivity extends Activity {
 					DatagramPacket inPacket = new DatagramPacket(new byte[1024], 1024);
 					try {
 						socket.receive(inPacket);
-						buffer.write(inPacket.getData());
+						Log.d("UDPStreaming", "Receiver: " + buffer.write(inPacket.getData()));
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -80,9 +80,12 @@ public class MainActivity extends Activity {
 				at.play();
 				while (true) {
 					try{
-						buffer.read(bytes);
-						at.write(bytes, 0, 1024);
-						Thread.sleep(5);
+						if(buffer.read(bytes)){
+							at.write(bytes, 0, 1024);
+						}else{
+							Log.d("UDPStreaming", "BufferEmpty");
+						}
+//						Thread.sleep(4);
 					}catch(Exception e){
 						e.printStackTrace();
 					}
@@ -101,27 +104,16 @@ public class MainActivity extends Activity {
 					File file = new File(Environment.getExternalStorageDirectory(), "tinytim.wav");
 					FileInputStream in = new FileInputStream(file);
 
-					long startTime = System.currentTimeMillis();
-					int bytesPerSecond = 0;
-
 					int bytesread = 0, ret = 0;
 					int size = (int) file.length();
 					while (bytesread < size) {
 						ret = in.read(sendData, 0, count);
 						socket.send(new DatagramPacket(sendData, sendData.length, serverAddress, serverPort));
 						bytesread += ret;
-
-						bytesPerSecond += ret;
-						if(System.currentTimeMillis() - startTime >= 1000){
-							Log.d("UDPTEST", String.valueOf(bytesPerSecond));
-							startTime = System.currentTimeMillis();
-							bytesPerSecond = 0;
-						}
-
 						Thread.sleep(5);
 					} 
 					in.close();
-					//					socket.close();
+					socket.close();
 				}catch(Exception e){
 					e.printStackTrace();
 				}
@@ -131,7 +123,7 @@ public class MainActivity extends Activity {
 		receiverThread.start();
 		senderThread.start();
 		try {
-			Thread.sleep(30);
+			Thread.sleep(100);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}

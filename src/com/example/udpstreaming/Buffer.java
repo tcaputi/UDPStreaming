@@ -32,6 +32,7 @@ public class Buffer {
 			inPointer = b.length - remaining;
 			buffer.position(inPointer);
 		}
+//		Log.d("UDPSreaming", "Write: " + inPointer);
 		return true;
 	}
 
@@ -48,11 +49,16 @@ public class Buffer {
 			System.arraycopy(buffer.array(), outPointer, b, 0, b.length);
 			outPointer += b.length;
 		} else {
-			System.arraycopy(buffer, outPointer, b, 0, remaining);
+			System.arraycopy(buffer.array(), outPointer, b, 0, remaining);
 			System.arraycopy(buffer.array(), 0, b, remaining, b.length - remaining);
 			outPointer = b.length - remaining;
 		}
-
+//		Log.d("UDPSreaming", "Read: " + outPointer);
 		return true;
+	}
+	
+	public int size(){
+		if(inPointer >= outPointer) return outPointer - inPointer;
+		else return (buffer.capacity() - outPointer) + inPointer;
 	}
 }
