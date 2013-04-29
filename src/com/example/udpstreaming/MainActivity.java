@@ -27,12 +27,12 @@ public class MainActivity extends Activity {
 	private static final int BYTES_PER_LAPSE = 44100;
 	private static final int LAPSE_PERIOD_MS = 250;
 	private static final int SENDER_LAPSE_PERIOD_MS = (LAPSE_PERIOD_MS * 2 * PACKET_SIZE) / (BYTES_PER_LAPSE);
-	
+
 	private DatagramSocket socket;
 	private InetAddress serverAddress;
 	private ByteBuffer buffer;
 	private int readPointer = 0;
-	
+
 	private TextView tv;
 
 	@Override
@@ -69,17 +69,16 @@ public class MainActivity extends Activity {
 			public void run() {
 
 				byte[] bytes = new byte[PACKET_SIZE];
-
-				while (true) {
-					DatagramPacket inPacket = new DatagramPacket(bytes, PACKET_SIZE);
-					try {
+				DatagramPacket inPacket = new DatagramPacket(bytes, PACKET_SIZE);
+				try {
+					while (true) {
 						socket.receive(inPacket);
-						
+
 						if (buffer.position() <= readPointer && ((buffer.position() + PACKET_SIZE) % buffer.capacity() > readPointer || (buffer.position() + PACKET_SIZE) % buffer.capacity() <= buffer.position()))
 							Log.d("UDPStreaming", "BufferOverflow");
 						else if (buffer.position() > readPointer && (buffer.position() + PACKET_SIZE) % buffer.capacity() > readPointer && (buffer.position() + PACKET_SIZE) % buffer.capacity() <= buffer.position())
 							Log.d("UDPStreaming", "BufferOverflow");
-						
+
 						int remaining = buffer.capacity() - buffer.position();
 						if (remaining >= bytes.length) {
 							buffer.put(bytes);
@@ -88,9 +87,10 @@ public class MainActivity extends Activity {
 							buffer.position(0);
 							buffer.put(bytes, remaining, bytes.length - remaining);
 						}
-					} catch (IOException e) {
-						e.printStackTrace();
+
 					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 			}
 		});
@@ -110,22 +110,22 @@ public class MainActivity extends Activity {
 					if (bufferSize() < CACHE_THRESHOLD) {
 						doCache(0.8f); // Fatten the buffer
 					}
-					
+
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
 					// bytes to the audio track
 					if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
-					
+
 						// Update our recorded time stamp, do it this high to ignore processing time
 						timeStamp = System.currentTimeMillis();
-						
+
 						// Audio logic
 						Log.d("UDPStreaming", "Pushing " + BYTES_PER_LAPSE + " of audio");
 						remaining = buffer.capacity() - readPointer;
 						if (remaining >= BYTES_PER_LAPSE) { // There is enough
-															// space left in the
-															// buffer without
-															// staggering our
-															// read
+							// space left in the
+							// buffer without
+							// staggering our
+							// read
 							audioTrack.write(buffer.array(), readPointer, BYTES_PER_LAPSE);
 							readPointer += BYTES_PER_LAPSE;
 						} else {
@@ -152,7 +152,7 @@ public class MainActivity extends Activity {
 					Log.e("UDPStreaming", "File input stream could not be established", e1);
 					return;
 				}
-				
+
 				long timeStamp = -1;
 				int bytesread = 0, ret = 0, size = (int) file.length();;
 				byte[] sendData = new byte[PACKET_SIZE];
@@ -182,11 +182,11 @@ public class MainActivity extends Activity {
 
 		receiverThread.start();
 		senderThread.start();
-//		try {
-//			Thread.sleep(100);
-//		} catch (InterruptedException e) {
-//			e.printStackTrace();
-//		}
+		//		try {
+		//			Thread.sleep(100);
+		//		} catch (InterruptedException e) {
+		//			e.printStackTrace();
+		//		}
 		playerThread.start();
 	}
 
@@ -207,9 +207,7 @@ public class MainActivity extends Activity {
 	}
 
 	private int bufferSize() {
-		if (buffer.position() >= readPointer)
-			return (buffer.position() - readPointer);
-		else
-			return ((buffer.capacity() - readPointer) + buffer.position());
+		if (buffer.position() >= readPointer) return (buffer.position() - readPointer);
+		else return ((buffer.capacity() - readPointer) + buffer.position());
 	}
 }
