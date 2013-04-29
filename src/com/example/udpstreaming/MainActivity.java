@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
 	private static final int BUFFER_SIZE = PACKET_SIZE * 512;
 	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
 	private static final int BYTES_PER_LAPSE = 88200;
-	private static final int LAPSE_PERIOD_MS = 1000;
+	private static final int LAPSE_PERIOD_MS = 500;
 	private static final int SENDER_LAPSE_PERIOD_MS = (LAPSE_PERIOD_MS * PACKET_SIZE) / BYTES_PER_LAPSE;
 	
 	private DatagramSocket socket;
