@@ -70,6 +70,10 @@ public class MainActivity extends Activity {
 				byte[] bytes = new byte[PACKET_SIZE];
 
 				while (true) {
+//					if (inPointer <= outPointer && ((inPointer + b.length) % buffer.capacity() > outPointer || (inPointer + b.length) % buffer.capacity() <= inPointer))
+//						continue;
+//					if (inPointer > outPointer && (inPointer + b.length) % buffer.capacity() > outPointer && (inPointer + b.length) % buffer.capacity() <= inPointer)
+//						continue;
 					DatagramPacket inPacket = new DatagramPacket(bytes, PACKET_SIZE);
 					try {
 						socket.receive(inPacket);
@@ -105,7 +109,7 @@ public class MainActivity extends Activity {
 						timeStamp = System.currentTimeMillis();
 						// Check if we need to fatten our buffer
 						if (bufferSize() < CACHE_THRESHOLD) {
-							doCache(0.9f); // Fatten the buffer
+							doCache(0.8f); // Fatten the buffer
 						}
 						// Audio logic
 						Log.d("UDPStreaming", "Pushing " + BYTES_PER_LAPSE + " of audio");
