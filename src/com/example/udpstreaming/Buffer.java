@@ -58,7 +58,7 @@ public class Buffer {
 	}
 	
 	public int size(){
-		if(inPointer >= outPointer) return outPointer - inPointer;
+		if(inPointer <= outPointer) return outPointer - inPointer;
 		else return (buffer.capacity() - outPointer) + inPointer;
 	}
 }
