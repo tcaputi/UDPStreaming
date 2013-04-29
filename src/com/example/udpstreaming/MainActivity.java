@@ -20,12 +20,13 @@ import android.widget.TextView;
 
 public class MainActivity extends Activity {
 
+	private static final int SAMPLE_RATE = 44100;
 	private static final int PACKET_SIZE = 1024;
 	private static final int BUFFER_SIZE = PACKET_SIZE * 512;
 	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
-	private static final int BYTES_PER_LAPSE = 88200;
-	private static final int LAPSE_PERIOD_MS = 500;
-	private static final int SENDER_LAPSE_PERIOD_MS = (LAPSE_PERIOD_MS * PACKET_SIZE) / BYTES_PER_LAPSE;
+	private static final int BYTES_PER_LAPSE = 44100;
+	private static final int LAPSE_PERIOD_MS = 250;
+	private static final int SENDER_LAPSE_PERIOD_MS = (LAPSE_PERIOD_MS * 2 * PACKET_SIZE) / (BYTES_PER_LAPSE);
 	
 	private DatagramSocket socket;
 	private InetAddress serverAddress;
@@ -70,13 +71,15 @@ public class MainActivity extends Activity {
 				byte[] bytes = new byte[PACKET_SIZE];
 
 				while (true) {
-//					if (inPointer <= outPointer && ((inPointer + b.length) % buffer.capacity() > outPointer || (inPointer + b.length) % buffer.capacity() <= inPointer))
-//						continue;
-//					if (inPointer > outPointer && (inPointer + b.length) % buffer.capacity() > outPointer && (inPointer + b.length) % buffer.capacity() <= inPointer)
-//						continue;
 					DatagramPacket inPacket = new DatagramPacket(bytes, PACKET_SIZE);
 					try {
 						socket.receive(inPacket);
+						
+						if (buffer.position() <= readPointer && ((buffer.position() + PACKET_SIZE) % buffer.capacity() > readPointer || (buffer.position() + PACKET_SIZE) % buffer.capacity() <= buffer.position()))
+							Log.d("UDPStreaming", "BufferOverflow");
+						else if (buffer.position() > readPointer && (buffer.position() + PACKET_SIZE) % buffer.capacity() > readPointer && (buffer.position() + PACKET_SIZE) % buffer.capacity() <= buffer.position())
+							Log.d("UDPStreaming", "BufferOverflow");
+						
 						int remaining = buffer.capacity() - buffer.position();
 						if (remaining >= bytes.length) {
 							buffer.put(bytes);
@@ -96,21 +99,25 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
-				int minBufferSize = android.media.AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-				AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
+				int minBufferSize = android.media.AudioTrack.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+				AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
 				audioTrack.play();
+				Log.d("UDPStreaming", "PlaybackRate: " + audioTrack.getPlaybackRate() + " / " + audioTrack.getSampleRate());
 				int remaining;
 				long timeStamp = -1;
 				while (true) {
+					// Check if we need to fatten our buffer
+					if (bufferSize() < CACHE_THRESHOLD) {
+						doCache(0.8f); // Fatten the buffer
+					}
+					
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
 					// bytes to the audio track
 					if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
+					
 						// Update our recorded time stamp, do it this high to ignore processing time
 						timeStamp = System.currentTimeMillis();
-						// Check if we need to fatten our buffer
-						if (bufferSize() < CACHE_THRESHOLD) {
-							doCache(0.8f); // Fatten the buffer
-						}
+						
 						// Audio logic
 						Log.d("UDPStreaming", "Pushing " + BYTES_PER_LAPSE + " of audio");
 						remaining = buffer.capacity() - readPointer;
@@ -151,7 +158,7 @@ public class MainActivity extends Activity {
 				byte[] sendData = new byte[PACKET_SIZE];
 				try {
 					while (true) {
-						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) {
+						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS/1.87) { //TODO: WHY?
 							// Update our recorded time stamp, do it this high to ignore processing time
 							timeStamp = System.currentTimeMillis();
 							// File read / broadcasting logic
