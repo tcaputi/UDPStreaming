@@ -20,12 +20,16 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
 
 	private static final int PACKET_SIZE = 1024;
-	private static final int TRACK_BUFFER_SIZE = PACKET_SIZE;
+	private static final int BUFFER_SIZE = PACKET_SIZE * 512;
+	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
+	private static final int BYTES_PER_LAPSE = 88200;
+	private static final int LAPSE_PERIOD_MS = 1000;
+	
 	private DatagramSocket socket;
 	private InetAddress serverAddress;
 	private ByteBuffer buffer;
 	private int readPointer = 0;
-
+	
 	private TextView tv;
 
 	@Override
@@ -39,12 +43,12 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
-				try{
+				try {
 					serverAddress = InetAddress.getByName("sandile.me");
 					socket = new DatagramSocket(8991);
-					buffer = ByteBuffer.allocate(PACKET_SIZE*512);
+					buffer = ByteBuffer.allocate(BUFFER_SIZE);
 					startThreads();
-				}catch(Exception e){
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
@@ -53,7 +57,7 @@ public class MainActivity extends Activity {
 		initThread.start();
 	}
 
-	private void startThreads(){
+	private void startThreads() {
 		final int serverPort = 4000;
 
 		Thread receiverThread = new Thread(new Runnable() {
@@ -86,40 +90,39 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
-
-				int intSize = android.media.AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT); 
-				AudioTrack at = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, intSize, AudioTrack.MODE_STREAM); 
-				boolean test = false;
-				at.play();
-				try{
-					while (true) {
-						int remaining = buffer.capacity() - readPointer;
-						if(buffer.position() >= readPointer) Log.d("UDPStreaming", "Size: " + (buffer.position() - readPointer));
-						else Log.d("UDPStreaming", "Size: " + (remaining + buffer.position()));
-						
-						if(buffer.position() >= 1024*510) test = true;
-						
-						if(test){
-							if (TRACK_BUFFER_SIZE > buffer.capacity())
-								continue;
-							if (buffer.position() <= readPointer && ((readPointer + TRACK_BUFFER_SIZE) % buffer.capacity() >= buffer.position() && (readPointer + TRACK_BUFFER_SIZE) % buffer.capacity() < readPointer))
-								continue;
-							if (buffer.position() > readPointer && ((readPointer + TRACK_BUFFER_SIZE) % buffer.capacity() >= buffer.position() || (readPointer + TRACK_BUFFER_SIZE) % buffer.capacity() <= readPointer))
-								continue;
-
-							if (remaining >= TRACK_BUFFER_SIZE) {
-								at.write(buffer.array(), readPointer, TRACK_BUFFER_SIZE);
-								readPointer += TRACK_BUFFER_SIZE;
-							} else {
-								at.write(buffer.array(), readPointer, remaining);
-								at.write(buffer.array(), 0, TRACK_BUFFER_SIZE - remaining);
-								readPointer = TRACK_BUFFER_SIZE - remaining;
-							}
+				int minBufferSize = android.media.AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+				AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
+				audioTrack.play();
+				int remaining;
+				long timeStamp = -1l;
+				while (true) {
+					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
+					// bytes to the audio track
+					if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
+						// Update our recorded time stamp, do it this high to ignore processing time
+						timeStamp = System.currentTimeMillis();
+						// Check if we need to fatten our buffer
+						if (bufferSize() < CACHE_THRESHOLD) {
+							doCache(0.9f); // Fatten the buffer
 						}
-						Thread.sleep(10);
+						// Audio logic
+						Log.d("UDPStreaming", "Pushing " + BYTES_PER_LAPSE + " of audio");
+						remaining = buffer.capacity() - readPointer;
+						if (remaining >= BYTES_PER_LAPSE) { // There is enough
+															// space left in the
+															// buffer without
+															// staggering our
+															// read
+							audioTrack.write(buffer.array(), readPointer, BYTES_PER_LAPSE);
+							readPointer += BYTES_PER_LAPSE;
+						} else {
+							// We need to stagger the read since we have a
+							// circular buffer
+							audioTrack.write(buffer.array(), readPointer, remaining);
+							audioTrack.write(buffer.array(), 0, BYTES_PER_LAPSE - remaining);
+							readPointer = BYTES_PER_LAPSE - remaining;
+						}
 					}
-				}catch(Exception e){
-					e.printStackTrace();
 				}
 			}
 		});
@@ -128,7 +131,7 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
-				try{
+				try {
 					int count = PACKET_SIZE;
 					byte[] sendData = new byte[count];
 
@@ -141,11 +144,11 @@ public class MainActivity extends Activity {
 						ret = in.read(sendData, 0, count);
 						socket.send(new DatagramPacket(sendData, sendData.length, serverAddress, serverPort));
 						bytesread += ret;
-						//						Thread.sleep(5);
-					} 
+						// Thread.sleep(5);
+					}
 					in.close();
 					socket.close();
-				}catch(Exception e){
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
@@ -160,5 +163,27 @@ public class MainActivity extends Activity {
 		}
 		playerThread.start();
 	}
-}
 
+	private void doCache(float target) { // Target is in %
+		// If the buffer is to frail, grow it up sufficiently
+		int size;
+		target = target * BUFFER_SIZE;
+		Log.d("UDPStreaming", "Buffer is too small, Caching Started");
+		while ((size = bufferSize()) < target) {
+			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				Log.e("UDPStreaming", "sleep failed");
+			}
+		}
+		Log.d("UDPStreaming", "Caching Ended");
+	}
+
+	private int bufferSize() {
+		if (buffer.position() >= readPointer)
+			return (buffer.position() - readPointer);
+		else
+			return ((buffer.capacity() - readPointer) + buffer.position());
+	}
+}
