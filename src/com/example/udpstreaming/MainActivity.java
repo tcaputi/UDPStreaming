@@ -2,6 +2,7 @@ package com.example.udpstreaming;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -24,6 +25,7 @@ public class MainActivity extends Activity {
 	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
 	private static final int BYTES_PER_LAPSE = 88200;
 	private static final int LAPSE_PERIOD_MS = 1000;
+	private static final int SENDER_LAPSE_PERIOD_MS = (LAPSE_PERIOD_MS * PACKET_SIZE) / BYTES_PER_LAPSE;
 	
 	private DatagramSocket socket;
 	private InetAddress serverAddress;
@@ -94,7 +96,7 @@ public class MainActivity extends Activity {
 				AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
 				audioTrack.play();
 				int remaining;
-				long timeStamp = -1l;
+				long timeStamp = -1;
 				while (true) {
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
 					// bytes to the audio track
@@ -131,36 +133,49 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
+				File file = new File(Environment.getExternalStorageDirectory(), "tinytim.wav");
+				FileInputStream in;
 				try {
-					int count = PACKET_SIZE;
-					byte[] sendData = new byte[count];
-
-					File file = new File(Environment.getExternalStorageDirectory(), "tinytim.wav");
-					FileInputStream in = new FileInputStream(file);
-
-					int bytesread = 0, ret = 0;
-					int size = (int) file.length();
-					while (bytesread < size) {
-						ret = in.read(sendData, 0, count);
-						socket.send(new DatagramPacket(sendData, sendData.length, serverAddress, serverPort));
-						bytesread += ret;
-						// Thread.sleep(5);
+					in = new FileInputStream(file);
+				} catch (FileNotFoundException e1) {
+					Log.e("UDPStreaming", "File input stream could not be established", e1);
+					return;
+				}
+				
+				long timeStamp = -1;
+				int bytesread = 0, ret = 0, size = (int) file.length();;
+				byte[] sendData = new byte[PACKET_SIZE];
+				try {
+					while (true) {
+						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) {
+							// Update our recorded time stamp, do it this high to ignore processing time
+							timeStamp = System.currentTimeMillis();
+							// File read / broadcasting logic
+							if (bytesread < size) {
+								ret = in.read(sendData, 0, PACKET_SIZE);
+								socket.send(new DatagramPacket(sendData, sendData.length, serverAddress, serverPort));
+								bytesread += ret;
+							} else {
+								in.close();
+								Log.d("UDPStreaming", "Transmission completed.");
+								break;
+							}
+						}
 					}
-					in.close();
-					socket.close();
-				} catch (Exception e) {
-					e.printStackTrace();
+				} catch (IOException e) {
+					Log.e("UDPStreaming", "File input stream read failed", e);
+					return;
 				}
 			}
 		});
 
 		receiverThread.start();
 		senderThread.start();
-		try {
-			Thread.sleep(100);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+//		try {
+//			Thread.sleep(100);
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
 		playerThread.start();
 	}
 
