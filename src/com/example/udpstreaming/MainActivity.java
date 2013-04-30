@@ -22,7 +22,7 @@ public class MainActivity extends Activity {
 
 	private static final int SAMPLE_RATE = 44100;
 	private static final int PACKET_SIZE = 1024;
-	private static final int BUFFER_SIZE = PACKET_SIZE * 512;
+	private static final int BUFFER_SIZE = PACKET_SIZE * 512 * 2;
 	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
 	private static final int BYTES_PER_LAPSE = 44100;
 	private static final int LAPSE_PERIOD_MS = 250;
@@ -182,11 +182,6 @@ public class MainActivity extends Activity {
 
 		receiverThread.start();
 		senderThread.start();
-		//		try {
-		//			Thread.sleep(100);
-		//		} catch (InterruptedException e) {
-		//			e.printStackTrace();
-		//		}
 		playerThread.start();
 	}
 
