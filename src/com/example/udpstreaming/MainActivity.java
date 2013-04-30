@@ -21,12 +21,13 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
 
 	private static final int SAMPLE_RATE = 44100;
-	private static final int PACKET_SIZE = 1024;
+	private static final int BYTES_PER_SAMPLE = 2;
+	private static final int PACKET_SIZE = 882;
 	private static final int BUFFER_SIZE = PACKET_SIZE * 512 * 2;
 	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
-	private static final int BYTES_PER_LAPSE = 44100;
-	private static final int LAPSE_PERIOD_MS = 250;
-	private static final int SENDER_LAPSE_PERIOD_MS = (LAPSE_PERIOD_MS * 2 * PACKET_SIZE) / (BYTES_PER_LAPSE);
+	private static final int BYTES_PER_LAPSE = SAMPLE_RATE * BYTES_PER_SAMPLE * 2;
+	private static final int LAPSE_PERIOD_MS = 1000;
+	private static final int SENDER_LAPSE_PERIOD_MS = (PACKET_SIZE * LAPSE_PERIOD_MS) / (BYTES_PER_LAPSE);
 
 	private DatagramSocket socket;
 	private InetAddress serverAddress;
@@ -114,12 +115,12 @@ public class MainActivity extends Activity {
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
 					// bytes to the audio track
 					if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
-
+						Log.d("UDPStreaming", "Playing " + BYTES_PER_LAPSE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
 						// Update our recorded time stamp, do it this high to ignore processing time
 						timeStamp = System.currentTimeMillis();
 
 						// Audio logic
-						Log.d("UDPStreaming", "Pushing " + BYTES_PER_LAPSE + " of audio");
+						
 						remaining = buffer.capacity() - readPointer;
 						if (remaining >= BYTES_PER_LAPSE) { // There is enough
 							// space left in the
@@ -158,8 +159,9 @@ public class MainActivity extends Activity {
 				byte[] sendData = new byte[PACKET_SIZE];
 				try {
 					while (true) {
-						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS/1.87) { //TODO: WHY?
+						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) { //TODO: WHY?
 							// Update our recorded time stamp, do it this high to ignore processing time
+							Log.d("UDPStreaming", "Sending " + PACKET_SIZE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
 							timeStamp = System.currentTimeMillis();
 							// File read / broadcasting logic
 							if (bytesread < size) {
@@ -192,11 +194,6 @@ public class MainActivity extends Activity {
 		Log.d("UDPStreaming", "Buffer is too small, Caching Started");
 		while ((size = bufferSize()) < target) {
 			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
-			try {
-				Thread.sleep(10);
-			} catch (InterruptedException e) {
-				Log.e("UDPStreaming", "sleep failed");
-			}
 		}
 		Log.d("UDPStreaming", "Caching Ended");
 	}
