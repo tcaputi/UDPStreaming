@@ -105,11 +105,11 @@ public class MainActivity extends Activity {
 				audioTrack.play();
 				Log.d("UDPStreaming", "PlaybackRate: " + audioTrack.getPlaybackRate() + " / " + audioTrack.getSampleRate());
 				int remaining;
-				long timeStamp = -1;
+				long timeStamp = System.currentTimeMillis();
 				while (true) {
 					// Check if we need to fatten our buffer
 					if (bufferSize() < CACHE_THRESHOLD) {
-						doCache(0.8f); // Fatten the buffer
+						timeStamp = doCache(0.8f); // Fatten the buffer
 					}
 
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
@@ -117,7 +117,7 @@ public class MainActivity extends Activity {
 					if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
 						Log.d("UDPStreaming", "Playing " + BYTES_PER_LAPSE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
 						// Update our recorded time stamp, do it this high to ignore processing time
-						timeStamp = System.currentTimeMillis();
+						timeStamp += LAPSE_PERIOD_MS;
 
 						// Audio logic
 						
@@ -154,7 +154,7 @@ public class MainActivity extends Activity {
 					return;
 				}
 
-				long timeStamp = -1;
+				long timeStamp = System.currentTimeMillis();
 				int bytesread = 0, ret = 0, size = (int) file.length();;
 				byte[] sendData = new byte[PACKET_SIZE];
 				try {
@@ -162,7 +162,7 @@ public class MainActivity extends Activity {
 						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) { //TODO: WHY?
 							// Update our recorded time stamp, do it this high to ignore processing time
 							Log.d("UDPStreaming", "Sending " + PACKET_SIZE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
-							timeStamp = System.currentTimeMillis();
+							timeStamp += SENDER_LAPSE_PERIOD_MS;
 							// File read / broadcasting logic
 							if (bytesread < size) {
 								ret = in.read(sendData, 0, PACKET_SIZE);
@@ -187,7 +187,7 @@ public class MainActivity extends Activity {
 		playerThread.start();
 	}
 
-	private void doCache(float target) { // Target is in %
+	private long doCache(float target) { // Target is in %
 		// If the buffer is to frail, grow it up sufficiently
 		int size;
 		target = target * BUFFER_SIZE;
@@ -196,6 +196,7 @@ public class MainActivity extends Activity {
 			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
 		}
 		Log.d("UDPStreaming", "Caching Ended");
+		return System.currentTimeMillis();
 	}
 
 	private int bufferSize() {
