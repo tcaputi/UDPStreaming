@@ -109,11 +109,7 @@ public class MainActivity extends Activity {
 				while (true) {
 					// Check if we need to fatten our buffer
 					if (bufferSize() < CACHE_THRESHOLD) {
-<<<<<<< HEAD
-						doCache(0.8f); // Fatten the buffer
-=======
 						timeStamp = doCache(0.5f); // Fatten the buffer
->>>>>>> fixed bug with play speed control
 					}
 
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
