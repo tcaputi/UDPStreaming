@@ -105,19 +105,20 @@ public class MainActivity extends Activity {
 				audioTrack.play();
 				Log.d("UDPStreaming", "PlaybackRate: " + audioTrack.getPlaybackRate() + " / " + audioTrack.getSampleRate());
 				int remaining;
-				long timeStamp = -1;
+				long timeStamp = System.currentTimeMillis();
 				while (true) {
 					// Check if we need to fatten our buffer
 					if (bufferSize() < CACHE_THRESHOLD) {
-						timeStamp = doCache(0.5f); // Fatten the buffer
+						doCache(0.5f); // Fatten the buffer
+						timeStamp = System.currentTimeMillis();
 					}
 
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
 					// bytes to the audio track
-					if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
+					if (System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
 						Log.d("UDPStreaming", "Playing: " + bufferSize() + " / " + BUFFER_SIZE);
 						// Update our recorded time stamp, do it this high to ignore processing time
-						timeStamp = System.currentTimeMillis();
+						timeStamp += LAPSE_PERIOD_MS;
 
 						// Audio logic
 						
@@ -154,15 +155,15 @@ public class MainActivity extends Activity {
 					return;
 				}
 
-				long timeStamp = -1;
+				long timeStamp = System.currentTimeMillis();
 				int bytesread = 0, ret = 0, size = (int) file.length();;
 				byte[] sendData = new byte[PACKET_SIZE];
 				try {
 					while (true) {
-						if (timeStamp == -1 || System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) { //TODO: WHY?
+						if (System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) {
 							// Update our recorded time stamp, do it this high to ignore processing time
 							Log.d("UDPStreaming", "Sending " + PACKET_SIZE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
-							timeStamp = System.currentTimeMillis();
+							timeStamp += SENDER_LAPSE_PERIOD_MS;
 							// File read / broadcasting logic
 							if (bytesread < size) {
 								ret = in.read(sendData, 0, PACKET_SIZE);
