@@ -23,7 +23,7 @@ public class MainActivity extends Activity {
 	private static final int SAMPLE_RATE = 44100;
 	private static final int BYTES_PER_SAMPLE = 2;
 	private static final int PACKET_SIZE = 882;
-	private static final int BUFFER_SIZE = PACKET_SIZE * 512 * 2;
+	private static final int BUFFER_SIZE = 882000; /*PACKET_SIZE * 512 * 2;*/
 	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
 	private static final int BYTES_PER_LAPSE = SAMPLE_RATE * BYTES_PER_SAMPLE * 2;
 	private static final int LAPSE_PERIOD_MS = 1000;
@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
 				try {
 					while (true) {
 						socket.receive(inPacket);
-
+//						Log.d("UDPStreaming", "Receiving: " + bufferSize() + " / " + BUFFER_SIZE);
 						if (buffer.position() <= readPointer && ((buffer.position() + PACKET_SIZE) % buffer.capacity() > readPointer || (buffer.position() + PACKET_SIZE) % buffer.capacity() <= buffer.position()))
 							Log.d("UDPStreaming", "BufferOverflow");
 						else if (buffer.position() > readPointer && (buffer.position() + PACKET_SIZE) % buffer.capacity() > readPointer && (buffer.position() + PACKET_SIZE) % buffer.capacity() <= buffer.position())
@@ -103,23 +103,24 @@ public class MainActivity extends Activity {
 				int minBufferSize = android.media.AudioTrack.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
 				AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
 				audioTrack.play();
-				Log.d("UDPStreaming", "PlaybackRate: " + audioTrack.getPlaybackRate() + " / " + audioTrack.getSampleRate());
+//				Log.d("UDPStreaming", "PlaybackRate: " + audioTrack.getPlaybackRate() + " / " + audioTrack.getSampleRate());
 				int remaining;
+				Log.d("UDPStreaming", "TimeStampInit: " + (System.currentTimeMillis()));
 				long timeStamp = System.currentTimeMillis();
 				while (true) {
 					// Check if we need to fatten our buffer
 					if (bufferSize() < CACHE_THRESHOLD) {
 						doCache(0.5f); // Fatten the buffer
-						timeStamp = System.currentTimeMillis();
+						timeStamp = System.currentTimeMillis() - LAPSE_PERIOD_MS;
+						Log.d("UDPStreaming", "TimeStampChange: " + (System.currentTimeMillis() - LAPSE_PERIOD_MS));
 					}
 
 					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
 					// bytes to the audio track
 					if (System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
-						Log.d("UDPStreaming", "Playing: " + bufferSize() + " / " + BUFFER_SIZE);
 						// Update our recorded time stamp, do it this high to ignore processing time
 						timeStamp += LAPSE_PERIOD_MS;
-
+						Log.d("UDPStreaming", "Playing: " +  bufferSize() + " / " + BUFFER_SIZE);
 						// Audio logic
 						
 						remaining = buffer.capacity() - readPointer;
@@ -155,14 +156,14 @@ public class MainActivity extends Activity {
 					return;
 				}
 
-				long timeStamp = System.currentTimeMillis();
+				long timeStamp = System.currentTimeMillis() - SENDER_LAPSE_PERIOD_MS;
 				int bytesread = 0, ret = 0, size = (int) file.length();;
 				byte[] sendData = new byte[PACKET_SIZE];
 				try {
 					while (true) {
 						if (System.currentTimeMillis() - timeStamp >= SENDER_LAPSE_PERIOD_MS) {
 							// Update our recorded time stamp, do it this high to ignore processing time
-							Log.d("UDPStreaming", "Sending " + PACKET_SIZE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
+//							Log.d("UDPStreaming", "Sending " + PACKET_SIZE + " bytes / " + (System.currentTimeMillis() - timeStamp) + " msec");
 							timeStamp += SENDER_LAPSE_PERIOD_MS;
 							// File read / broadcasting logic
 							if (bytesread < size) {
@@ -194,7 +195,7 @@ public class MainActivity extends Activity {
 		target = target * BUFFER_SIZE;
 		Log.d("UDPStreaming", "Buffer is too small, Caching Started");
 		while ((size = bufferSize()) < target) {
-			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
+//			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
 		}
 		Log.d("UDPStreaming", "Caching Ended");
 	}
