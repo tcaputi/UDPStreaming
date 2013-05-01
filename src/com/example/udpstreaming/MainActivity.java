@@ -115,25 +115,19 @@ public class MainActivity extends Activity {
 						Log.d("UDPStreaming", "TimeStampChange: " + (System.currentTimeMillis() - LAPSE_PERIOD_MS));
 					}
 
-					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE
-					// bytes to the audio track
+					// Every LAPSE_PERIOD_MS milliseconds, write BYTES_PER_LAPSE bytes to the audio track
 					if (System.currentTimeMillis() - timeStamp >= LAPSE_PERIOD_MS) {
 						// Update our recorded time stamp, do it this high to ignore processing time
 						timeStamp += LAPSE_PERIOD_MS;
 						Log.d("UDPStreaming", "Playing: " +  bufferSize() + " / " + BUFFER_SIZE);
-						// Audio logic
 						
+						// Audio logic
 						remaining = buffer.capacity() - readPointer;
-						if (remaining >= BYTES_PER_LAPSE) { // There is enough
-							// space left in the
-							// buffer without
-							// staggering our
-							// read
+						if (remaining >= BYTES_PER_LAPSE) { // There is enough space left in the buffer without staggering our read
 							audioTrack.write(buffer.array(), readPointer, BYTES_PER_LAPSE);
 							readPointer += BYTES_PER_LAPSE;
 						} else {
-							// We need to stagger the read since we have a
-							// circular buffer
+							// We need to stagger the read since we have a circular buffer
 							audioTrack.write(buffer.array(), readPointer, remaining);
 							audioTrack.write(buffer.array(), 0, BYTES_PER_LAPSE - remaining);
 							readPointer = BYTES_PER_LAPSE - remaining;
@@ -147,7 +141,7 @@ public class MainActivity extends Activity {
 
 			@Override
 			public void run() {
-				File file = new File(Environment.getExternalStorageDirectory(), "tinytim.wav");
+				File file = new File(Environment.getExternalStorageDirectory(), "Mystery_Song.wav");
 				FileInputStream in;
 				try {
 					in = new FileInputStream(file);
@@ -195,7 +189,7 @@ public class MainActivity extends Activity {
 		target = target * BUFFER_SIZE;
 		Log.d("UDPStreaming", "Buffer is too small, Caching Started");
 		while ((size = bufferSize()) < target) {
-//			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
+			Log.d("UDPStreaming", "Caching @ " + ((100.0f * size) / BUFFER_SIZE) + "%");
 		}
 		Log.d("UDPStreaming", "Caching Ended");
 	}
