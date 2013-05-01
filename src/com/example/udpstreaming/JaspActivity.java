@@ -25,12 +25,17 @@ public class JaspActivity extends Activity {
 	private static final int SAMPLE_RATE = 44100;
 	private static final int BYTES_PER_SAMPLE = 2;
 	private static final int BUFFER_SIZE = 882000; /*PACKET_SIZE * 512 * 2;*/
-	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.15f);
+	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.0f);
 	private static final int BYTES_PER_LAPSE = SAMPLE_RATE * BYTES_PER_SAMPLE * 2;
 	private static final int LAPSE_PERIOD_MS = 1000;
 	
 	private ByteBuffer buffer;
 	private int readPointer = 0;
+	
+	private int expectedIndex = 0;
+	private double receivedPackets = 0;
+	private double droppedPackets = 0;
+	private byte[] emptyAudioPacket = new byte[AUDIO_PACKET_SIZE];
 
 	private TextView tv;
 
@@ -49,20 +54,18 @@ public class JaspActivity extends Activity {
 			JASPReceiver receiver = new JASPReceiver(SERVER_ADDRESS, SERVER_PORT, new DatagramSocket(LOCAL_SOCKET_PORT), SESSION_ID, USER_ID, AUDIO_PACKET_SIZE) {
 				@Override
 				public void onReceive(int index, byte[] data) {
-					Log.d("UDPStreaming", String.valueOf(index));
-					if (buffer.position() <= readPointer && ((buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() > readPointer || (buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() <= buffer.position()))
-						Log.d("UDPStreaming", "BufferOverflow");
-					else if (buffer.position() > readPointer && (buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() > readPointer && (buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() <= buffer.position())
-						Log.d("UDPStreaming", "BufferOverflow");
-
-					int remaining = buffer.capacity() - buffer.position();
-					if (remaining >= data.length) {
-						buffer.put(data);
-					} else {
-						buffer.put(data, 0, remaining);
-						buffer.position(0);
-						buffer.put(data, remaining, data.length - remaining);
+					if(index > expectedIndex && expectedIndex != 0){
+						for(; expectedIndex<index; expectedIndex++){
+							writeToBuffer(emptyAudioPacket);
+							droppedPackets += 1;
+//							Log.d("UDPStreaming", "Packet Dropped: " + droppedPackets);
+						}
 					}
+					expectedIndex++;
+					
+					writeToBuffer(data);
+					receivedPackets += 1;
+					Log.d("UDPStreaming", "Packet Loss: " +  droppedPackets/(receivedPackets + droppedPackets) + " : " + droppedPackets + " / " + (receivedPackets + droppedPackets));
 				}
 			};
 			receiver.start();
@@ -132,5 +135,21 @@ public class JaspActivity extends Activity {
 	private int bufferSize() {
 		if (buffer.position() >= readPointer) return (buffer.position() - readPointer);
 		else return ((buffer.capacity() - readPointer) + buffer.position());
+	}
+	
+	private void writeToBuffer(byte[] data){
+		if (buffer.position() <= readPointer && ((buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() > readPointer || (buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() <= buffer.position()))
+			Log.d("UDPStreaming", "BufferOverflow");
+		else if (buffer.position() > readPointer && (buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() > readPointer && (buffer.position() + AUDIO_PACKET_SIZE) % buffer.capacity() <= buffer.position())
+			Log.d("UDPStreaming", "BufferOverflow");
+
+		int remaining = buffer.capacity() - buffer.position();
+		if (remaining >= data.length) {
+			buffer.put(data);
+		} else {
+			buffer.put(data, 0, remaining);
+			buffer.position(0);
+			buffer.put(data, remaining, data.length - remaining);
+		}
 	}
 }
