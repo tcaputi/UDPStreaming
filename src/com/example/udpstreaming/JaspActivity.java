@@ -25,7 +25,7 @@ public class JaspActivity extends Activity {
 	private static final int SAMPLE_RATE = 44100;
 	private static final int BYTES_PER_SAMPLE = 2;
 	private static final int BUFFER_SIZE = 882000; /*PACKET_SIZE * 512 * 2;*/
-	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.0f);
+	private static final int CACHE_THRESHOLD = (int) (BUFFER_SIZE * 0.05f);
 	private static final int BYTES_PER_LAPSE = SAMPLE_RATE * BYTES_PER_SAMPLE * 2;
 	private static final int LAPSE_PERIOD_MS = 1000;
 	
